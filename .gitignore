@@ -1,0 +1,23 @@
+# Archivos sensibles
+.env
+.env.*
+*.env
+
+# Logs
+data/
+logs/
+*.log
+
+# Datos
+data/
+data/*
+*.sqlite
+*.db
+
+# Node / Python 
+node_modules/
+__pycache__/
+*.pyc
+
+# Sistema
+.DS_Store

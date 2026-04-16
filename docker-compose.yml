@@ -1,0 +1,11 @@
+services:
+  scraper:
+    build: .
+    container_name: scraper-noticias
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs

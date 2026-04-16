@@ -168,4 +168,4 @@ Para agregar una fuente nueva, edita el array `FUENTES` en `scraper.py`:
 
 **Panditax** — [@Panditax727](https://github.com/Panditax727)
 
-> Proyecto desarrollado como parte del setup de servidor personal. Corre 24/7 en una laptop Acer desde Viña del Mar 🇨🇱
+> Proyecto desarrollado como parte del setup de servidor personal. Corre 24/7 🇨🇱

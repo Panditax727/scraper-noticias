@@ -121,18 +121,52 @@ FUENTES_REGIONALES = [
 
 FUENTES_NACIONALES = [
     {"nombre": "Google News Chile", "rss": "https://news.google.com/rss/search?q=chile"},
-    {"nombre": "BioBioChile", "rss": "https://www.biobiochile.cl/feed/"},
-    {"nombre": "T13", "rss": "https://www.t13.cl/rss"},
+
+    # BioBioChile — URL original daba 404, nueva via FeedBurner
+    # {"nombre": "BioBioChile", "rss": "https://www.biobiochile.cl/feed/"},
+    {"nombre": "BioBioChile", "rss": "https://feeds.feedburner.com/radiobiobio/NNeJ"},
+
+    # T13 — URL original daba 404, nueva URL confirmada
+    # {"nombre": "T13", "rss": "https://www.t13.cl/rss"},
+    {"nombre": "T13", "rss": "https://www.t13.cl/rss/"},
+
+    # Emol — daba connection reset, misma URL (puede ser bloqueo de IP, se mantiene)
     {"nombre": "Emol", "rss": "https://www.emol.com/rss/"},
-    {"nombre": "La Tercera", "rss": "https://www.latercera.com/feed/"},
-    {"nombre": "El Mostrador", "rss": "https://elmostrador.cl/feed/"},
+
+    # La Tercera — URL original daba 404, nueva URL confirmada
+    # {"nombre": "La Tercera", "rss": "https://www.latercera.com/feed/"},
+    {"nombre": "La Tercera", "rss": "https://www.latercera.com/arc/outboundfeeds/feeds/rss/?outputType=xml"},
+
+    # El Mostrador — URL original daba 404, nueva URL confirmada
+    # {"nombre": "El Mostrador", "rss": "https://elmostrador.cl/feed/"},
+    {"nombre": "El Mostrador", "rss": "https://www.elmostrador.cl/noticias/feed/"},
+
     {"nombre": "CNN Chile", "rss": "https://www.cnnchile.com/feed/"},
     {"nombre": "Cooperativa", "rss": "https://www.cooperativa.cl/noticias/site/tax/port/all/rss____1.xml"},
-    {"nombre": "24 Horas", "rss": "https://www.24horas.cl/feeds/news.xml"},
-    {"nombre": "ADN Radio", "rss": "https://www.adnradio.cl/rss/"},
-    {"nombre": "Publimetro", "rss": "https://www.publimetro.cl/cl/rss.xml"},
-    {"nombre": "El Dínamo", "rss": "https://www.eldinamo.cl/feed/"},
+
+    # 24 Horas — URL original daba 404, nueva URL confirmada
+    # {"nombre": "24 Horas", "rss": "https://www.24horas.cl/feeds/news.xml"},
+    {"nombre": "24 Horas", "rss": "https://www.24horas.cl/feed/"},
+
+    # ADN Radio — URL original daba 404, nueva URL confirmada
+    # {"nombre": "ADN Radio", "rss": "https://www.adnradio.cl/rss/"},
+    {"nombre": "ADN Radio", "rss": "https://www.adnradio.cl/feed/"},
+
+    # Publimetro — URL original daba 404, nueva URL confirmada
+    # {"nombre": "Publimetro", "rss": "https://www.publimetro.cl/cl/rss.xml"},
+    {"nombre": "Publimetro", "rss": "https://www.publimetro.cl/arc/outboundfeeds/rss/?outputType=xml"},
+
+    # El Dínamo — URL original daba 404, nueva URL confirmada
+    # {"nombre": "El Dínamo", "rss": "https://www.eldinamo.cl/feed/"},
+    {"nombre": "El Dínamo", "rss": "https://www.eldinamo.cl/noticias/feed/"},
+
     {"nombre": "Ex-Ante", "rss": "https://www.ex-ante.cl/feed/"},
+
+    # Fuentes nuevas agregadas
+    {"nombre": "The Clinic", "rss": "https://www.theclinic.cl/feed/"},
+    {"nombre": "Diario Financiero", "rss": "https://www.df.cl/noticias/site/list/port/rss.xml"},
+    {"nombre": "El Siglo", "rss": "https://elsiglo.cl/feed/"},
+    {"nombre": "La Nación", "rss": "https://www.lanacion.cl/feed/"},
 ]
 
 

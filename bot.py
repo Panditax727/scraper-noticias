@@ -1,7 +1,8 @@
-import requests
 import os
+import sqlite3
 from datetime import datetime
 import email.utils
+import requests
 import telebot
 import logging
 
@@ -10,8 +11,13 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 
 bot = telebot.TeleBot(TOKEN)
 
+DB_PATH = "/app/data/noticias.db"
+
 os.makedirs("logs", exist_ok=True)
 
+# +--------------------+
+#  LOGGER
+# +--------------------+
 
 def get_user_logger(user_id):
     logger = logging.getLogger(str(user_id))
@@ -24,8 +30,12 @@ def get_user_logger(user_id):
     return logger
 
 
+# +--------------------+
+#  HELPERS
+# +--------------------+
+
 def formatear_fecha(fecha):
-    if not fecha:
+    if not fecha or fecha == "desconocida":
         return "Sin fecha"
     try:
         return datetime.fromisoformat(fecha).strftime("%d-%m-%Y %H:%M")
@@ -38,44 +48,183 @@ def formatear_fecha(fecha):
         return fecha
 
 
+def get_connection():
+    return sqlite3.connect(DB_PATH, check_same_thread=False, timeout=10)
+
+
+def enviar_mensaje(chat_id, texto, parse_mode="Markdown"):
+    try:
+        response = requests.post(
+            f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+            json={
+                "chat_id": chat_id,
+                "text": texto,
+                "parse_mode": parse_mode,
+                "disable_web_page_preview": True,
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+    except requests.RequestException as e:
+        print(f"⚠ Error enviando mensaje: {e}")
+
+
+# +--------------------+
+#  FUNCIONES PÚBLICAS (usadas por main.py)
+# +--------------------+
+
 def enviar_noticia(noticia):
     fecha = noticia.get("fecha")
+    link = noticia.get("link", "")
+
+    if link:
+        texto = (
+            f"*{noticia['fuente']}*\n"
+            f"{noticia['titulo']}\n"
+            f"🕒 {formatear_fecha(fecha)}\n"
+            f"[Ver noticia]({link})"
+        )
+    else:
+        texto = (
+            f"*{noticia['fuente']}*\n"
+            f"{noticia['titulo']}\n"
+            f"🕒 {formatear_fecha(fecha)}"
+        )
+
+    enviar_mensaje(CHAT_ID, texto)
+
+
+def enviar_resumen(total, top_noticias):
+    """Envía resumen con top 3 e instrucciones de comandos."""
+    lines = [f"✅ *Scraping completado* — {total} noticias nuevas encontradas\n"]
+
+    if top_noticias:
+        lines.append("📌 *Top 3 más relevantes:*")
+        for i, n in enumerate(top_noticias[:3], 1):
+            lines.append(f"{i}. [{n['titulo'][:60]}...]({n['link']})" if len(n['titulo']) > 60 else f"{i}. [{n['titulo']}]({n['link']})")
+
+    lines.append("\n💡 *Comandos disponibles:*")
+    lines.append("/ver — Ver todas las noticias de este ciclo")
+    lines.append("/top — Ver las top 3 más relevantes")
+    lines.append("/resumen — Ver noticias agrupadas por fuente")
+
+    enviar_mensaje(CHAT_ID, "\n".join(lines))
+
+
+# +--------------------+
+#  COMANDOS DEL BOT
+# +--------------------+
+
+@bot.message_handler(commands=["start", "ayuda", "help"])
+def cmd_ayuda(message):
     texto = (
-        f"*{noticia['fuente']}*\n"
-        f"{noticia['titulo']}\n"
-        f"🕒 {formatear_fecha(fecha)}\n"
-        f"[Ver noticia]({noticia['link']})"
+        "🤖 *Bot de Noticias Chile*\n\n"
+        "Comandos disponibles:\n"
+        "/ver — Ver todas las noticias del último ciclo\n"
+        "/top — Ver las top 3 más relevantes\n"
+        "/resumen — Ver noticias agrupadas por fuente\n"
+        "/ayuda — Mostrar esta ayuda"
     )
+    enviar_mensaje(message.chat.id, texto)
+
+
+@bot.message_handler(commands=["top"])
+def cmd_top(message):
     try:
-        response = requests.post(
-            f"https://api.telegram.org/bot{TOKEN}/sendMessage",
-            json={
-                "chat_id": CHAT_ID,
-                "text": texto,
-                "parse_mode": "Markdown",
-                "disable_web_page_preview": False,
-            },
-            timeout=10,
+        con = get_connection()
+        rows = con.execute(
+            """
+            SELECT titulo, fuente, link, fecha, score
+            FROM sesion_noticias
+            ORDER BY score DESC
+            LIMIT 3
+            """
+        ).fetchall()
+        con.close()
+    except Exception as e:
+        enviar_mensaje(message.chat.id, f"⚠ Error leyendo noticias: {e}")
+        return
+
+    if not rows:
+        enviar_mensaje(message.chat.id, "No hay noticias del último ciclo aún. Espera el próximo scraping.")
+        return
+
+    enviar_mensaje(message.chat.id, "📌 *Top 3 noticias más relevantes:*")
+    for i, (titulo, fuente, link, fecha, score) in enumerate(rows, 1):
+        texto = (
+            f"*{i}. {fuente}*\n"
+            f"{titulo}\n"
+            f"🕒 {formatear_fecha(fecha)}\n"
+            f"[Ver noticia]({link})"
         )
-        response.raise_for_status()
-    except requests.RequestException as e:
-        print(f"⚠ Error enviando noticia '{noticia.get('titulo', '')}': {e}")
+        enviar_mensaje(message.chat.id, texto)
 
 
-def enviar_resumen(total):
+@bot.message_handler(commands=["ver", "mas"])
+def cmd_ver(message):
     try:
-        response = requests.post(
-            f"https://api.telegram.org/bot{TOKEN}/sendMessage",
-            json={
-                "chat_id": CHAT_ID,
-                "text": f"Scraper terminó: {total} noticias nuevas encontradas.",
-            },
-            timeout=10,
-        )
-        response.raise_for_status()
-    except requests.RequestException as e:
-        print(f"⚠ Error enviando resumen: {e}")
+        con = get_connection()
+        rows = con.execute(
+            """
+            SELECT titulo, fuente, link, fecha, score
+            FROM sesion_noticias
+            ORDER BY score DESC
+            """
+        ).fetchall()
+        con.close()
+    except Exception as e:
+        enviar_mensaje(message.chat.id, f"⚠ Error leyendo noticias: {e}")
+        return
 
+    if not rows:
+        enviar_mensaje(message.chat.id, "No hay noticias del último ciclo aún. Espera el próximo scraping.")
+        return
+
+    total = len(rows)
+    enviar_mensaje(message.chat.id, f"📰 *{total} noticias del último ciclo:*")
+
+    for titulo, fuente, link, fecha, score in rows:
+        texto = (
+            f"*{fuente}*\n"
+            f"{titulo}\n"
+            f"🕒 {formatear_fecha(fecha)}\n"
+            f"[Ver noticia]({link})"
+        )
+        enviar_mensaje(message.chat.id, texto)
+
+
+@bot.message_handler(commands=["resumen"])
+def cmd_resumen(message):
+    try:
+        con = get_connection()
+        rows = con.execute(
+            """
+            SELECT fuente, COUNT(*) as total
+            FROM sesion_noticias
+            GROUP BY fuente
+            ORDER BY total DESC
+            """
+        ).fetchall()
+        con.close()
+    except Exception as e:
+        enviar_mensaje(message.chat.id, f"⚠ Error leyendo noticias: {e}")
+        return
+
+    if not rows:
+        enviar_mensaje(message.chat.id, "No hay noticias del último ciclo aún.")
+        return
+
+    lines = ["📊 *Noticias por fuente (último ciclo):*\n"]
+    for fuente, total in rows:
+        lines.append(f"• *{fuente}*: {total} noticia{'s' if total > 1 else ''}")
+
+    lines.append("\nUsa /ver para ver todas o /top para las más relevantes.")
+    enviar_mensaje(message.chat.id, "\n".join(lines))
+
+
+# +--------------------+
+#  HANDLER GENERAL
+# +--------------------+
 
 @bot.message_handler(func=lambda message: True)
 def recibir_mensaje(message):
@@ -101,10 +250,16 @@ def recibir_mensaje(message):
         flush=True,
     )
 
+    enviar_mensaje(
+        message.chat.id,
+        "No entendí ese comando. Usa /ayuda para ver los comandos disponibles."
+    )
 
-# ✅ FIX: bot.polling() removido del nivel de módulo.
-# Ahora solo se inicia si ejecutas bot.py directamente (python bot.py),
-# no cuando se importa desde main.py o run.py.
+
+# +--------------------+
+#  ENTRY POINT
+# +--------------------+
+
 if __name__ == "__main__":
     print("🤖 Bot de Telegram iniciado (modo escucha)...")
-    bot.polling()
+    bot.polling(none_stop=True)

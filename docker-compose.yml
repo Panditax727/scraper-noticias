@@ -3,9 +3,24 @@ services:
     build: .
     container_name: scraper-noticias
     restart: unless-stopped
+    command: python run.py
     environment:
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+
+  bot:
+    build: .
+    container_name: bot-noticias
+    restart: unless-stopped
+    command: python bot.py
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - scraper

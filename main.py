@@ -1,13 +1,32 @@
-from scraper import scrapear
+import sqlite3
+from scraper import scrapear, DB_PATH, init_db
 from bot import enviar_noticia, enviar_resumen
 from collections import defaultdict
 
 
-def agrupar_por_region(noticias):
-    grupos = defaultdict(list)
+def guardar_sesion(noticias):
+    """Guarda las noticias del ciclo actual en sesion_noticias para que el bot pueda consultarlas."""
+    con = sqlite3.connect(DB_PATH, timeout=10)
+    con.execute("DROP TABLE IF EXISTS sesion_noticias")
+    con.execute(
+        """
+        CREATE TABLE sesion_noticias (
+            titulo TEXT,
+            fuente TEXT,
+            link TEXT,
+            fecha TEXT,
+            score INTEGER,
+            region TEXT
+        )
+        """
+    )
     for n in noticias:
-        grupos[n.get("region", "Nacional")].append(n)
-    return grupos
+        con.execute(
+            "INSERT INTO sesion_noticias VALUES (?,?,?,?,?,?)",
+            (n["titulo"], n["fuente"], n["link"], n.get("fecha", ""), n.get("score", 0), n.get("region", "Nacional")),
+        )
+    con.commit()
+    con.close()
 
 
 def correr():
@@ -17,20 +36,16 @@ def correr():
         print("Sin noticias nuevas.")
         return
 
-    grupos = agrupar_por_region(nuevas)
+    # Guardar en sesion_noticias para que /ver, /top, /resumen funcionen
+    guardar_sesion(nuevas)
 
-    for region, items in grupos.items():
-        enviar_noticia({
-            "fuente": f"📍 {region}",
-            "titulo": f"{len(items)} noticias importantes",
-            "link": "",
-            "fecha": None,
-        })
-        for n in items[:3]:
-            enviar_noticia(n)
+    # Enviar top 3 + mensaje con instrucciones
+    top3 = nuevas[:3]
+    for n in top3:
+        enviar_noticia(n)
 
-    enviar_resumen(len(nuevas))
-    print(f"{len(nuevas)} noticias enviadas.")
+    enviar_resumen(len(nuevas), nuevas)
+    print(f"{len(nuevas)} noticias procesadas, top 3 enviadas.")
 
 
 if __name__ == "__main__":

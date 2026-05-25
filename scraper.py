@@ -241,6 +241,33 @@ def guardar_noticia(con, noticia_id, titulo, fuente, link, region=None, fecha=No
 
 
 # +--------------------+
+#  RESOLVER REDIRECTS
+# +--------------------+
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "application/rss+xml, application/xml, text/xml, */*",
+    "Accept-Language": "es-CL,es;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+}
+
+def resolver_redirect(url):
+    """Sigue redirects para obtener la URL final del artículo.
+    Útil para links de Google News que redirigen al medio original."""
+    try:
+        resp = requests.head(url, timeout=8, headers=HEADERS, allow_redirects=True)
+        final = resp.url
+        # Si Google News no resolvió bien, intentar con GET
+        if "google.com" in final or "news.google.com" in final:
+            resp = requests.get(url, timeout=8, headers=HEADERS, allow_redirects=True)
+            final = resp.url
+        return final
+    except Exception:
+        return url  # si falla, devolver la URL original
+
+
+# +--------------------+
 #  THREAD WORKER
 # +--------------------+
 
@@ -248,17 +275,10 @@ def procesar_fuente(fuente):
     print(f"🔎 Procesando fuente: {fuente['nombre']}")
     con = get_connection()
     nuevas = []
+    es_google_news = "news.google.com" in fuente["rss"]
 
     try:
-        # ✅ FIX: feedparser no acepta timeout — usamos requests para descargar
-        # el feed con timeout real y luego lo parseamos.
-        resp = requests.get(fuente["rss"], timeout=10, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Accept": "application/rss+xml, application/xml, text/xml, */*",
-            "Accept-Language": "es-CL,es;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Connection": "keep-alive",
-        })
+        resp = requests.get(fuente["rss"], timeout=10, headers=HEADERS)
         resp.raise_for_status()
         feed = feedparser.parse(resp.content)
 
@@ -279,6 +299,10 @@ def procesar_fuente(fuente):
 
             if not es_noticia_importante(titulo):
                 continue
+
+            # ✅ Resolver redirect de Google News para obtener URL real del artículo
+            if es_google_news:
+                link = resolver_redirect(link)
 
             nid = hashlib.md5(link.encode()).hexdigest()
             score = puntaje_noticia(titulo)
